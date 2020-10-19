@@ -1,5 +1,5 @@
 # CAMEL-database-
-Thesis scripts for 2019-2020 Bioinformatics Masters
+Thesis scripts for 2020-2021 Bioinformatics Masters, building off of the work done by Samuel Haberman.
 
 Consists of the five Python scripts used throughout the thesis as well as a Jupyter Notebook where some analysis is done on the collected data.
 
