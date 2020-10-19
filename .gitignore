@@ -826,3 +826,4 @@ venv/Lib/site-packages/pyperclip/__main__.py
 venv/Lib/site-packages/pyrect/__init__.py
 venv/Lib/site-packages/pyscreeze/__init__.py
 venv/Lib/site-packages/pytweening/__init__.py
+.DS_Store
