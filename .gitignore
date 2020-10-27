@@ -831,3 +831,6 @@ venv/Lib/site-packages/pytweening/__init__.py
 .ipynb_checkpoints/Untitled-checkpoint.ipynb
 bin/*
 venv/*
+camel_venv/*
+lib/*
+pyvenv.cfg
