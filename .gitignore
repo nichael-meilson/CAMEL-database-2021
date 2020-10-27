@@ -829,3 +829,5 @@ venv/Lib/site-packages/pytweening/__init__.py
 .DS_Store
 .ipynb_checkpoints/DataAnalysis-checkpoint.ipynb
 .ipynb_checkpoints/Untitled-checkpoint.ipynb
+bin/*
+venv/*
