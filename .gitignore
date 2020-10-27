@@ -9,3 +9,4 @@ venv/*
 camel_venv/*
 lib/*
 pyvenv.cfg
+.idea/*

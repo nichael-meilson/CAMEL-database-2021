@@ -3,6 +3,34 @@ Thesis scripts for 2019-2020 Bioinformatics Masters
 
 Consists of the five Python scripts used throughout the thesis as well as a Jupyter Notebook where some analysis is done on the collected data.
 
+## Starting a virtual environment (MAC)
+Always use a virtual environment to work in a version of python that's compatible with the project.
+
+Build virtual environment using requirements file: 
+`python3 -m venv '~/your/project/directory/venv'`
+
+Enter the venv:
+`source venv/bin/activate`
+
+Check which Python interpreter you're using:
+`which python`
+
+It should look something like this:
+`(venv) Michaels-MacBook-Pro-5:CAMEL-database-2021 michaelneilson$ which python`
+`/Users/michaelneilson/Documents/School - Masters 3/Thesis/CAMEL-database-2021/venv/bin/python`
+
+Install the Python packages this project uses in the venv:
+`pip install -r requirements.txt`
+
+Check to see if all the packages have been installed in the venv:
+`pip list`
+
+To exit the venv:
+`deactivate`
+
+If you added Python packages to the project, export them to the requirements file:
+`pip freeze > requirements.txt`
+
 ## AddExperiment.py 
 This is the wrap script that needs to run to work with CAMEL. Requires three other scripts to perform its functionality (CellularLocation.py, Mechismo_functionality.py, and MutFunc_functionality.py)
 
