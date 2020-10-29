@@ -27,7 +27,7 @@ def convert_snp_mutfunc(df):
     # Convert SNPs to a suitable input format for Mutfunc
     # Take only data from the SNPs that we want for checking in MutFunc
     # Split numbers and test in cell (ie. 'Pro375Ser' --> ['Pro','375','Ser'])
-    df_split = SNP_df["∆AA"].str.findall(r'[A-Za-z]+|\d+')
+    df_split = df["∆AA"].str.findall(r'[A-Za-z]+|\d+')
 
     # Iterate through series to add empty values to get matching array lengths 
     # ie. ['Lys','8'] --> ['Lys','8','']
