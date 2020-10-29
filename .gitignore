@@ -2,8 +2,7 @@
 *.pyc
 *.tmp
 .DS_Store
-.ipynb_checkpoints/DataAnalysis-checkpoint.ipynb
-.ipynb_checkpoints/Untitled-checkpoint.ipynb
+.ipynb_checkpoints/*
 bin/*
 venv/*
 camel_venv/*
