@@ -7,31 +7,66 @@ import time
 import urllib.request
 import zipfile
 import os
-import win32com.client
+from Bio.Data.IUPACData import protein_letters_3to1
+# import win32com.client
 
 
 # requires an excel file of mutations that should be obtained from the Camel database experiment page. Since MutFunc
 # only works on SNPs the first thing we have to do is remove all non SNPs and only keep unique values
 
+def extract_snps(df):
+    # Input: mutfile df
+    # Output: filted mutfile df for SNPs
+    SNP_df = df[(df['TYPE']=="SNP") 
+                & (df["GEN"]!="NA")
+                & (df["GEN"].notnull())]
+    SNP_df.drop_duplicates(inplace=True)
+    return(SNP_df)
+
+def convert_snp_mutfunc(df):
+    # Convert SNPs to a suitable input format for Mutfunc
+    # Take only data from the SNPs that we want for checking in MutFunc
+    # Split numbers and test in cell (ie. 'Pro375Ser' --> ['Pro','375','Ser'])
+    df_split = SNP_df["∆AA"].str.findall(r'[A-Za-z]+|\d+')
+
+    # Iterate through series to add empty values to get matching array lengths 
+    # ie. ['Lys','8'] --> ['Lys','8','']
+    # ie. ['Pro'] --> ['Pro','','']
+    # Results in a DF with "reference","position","mutant" as columns
+    indexed_list = list()
+    for entry in df_split:
+        if len(entry) == 2:
+            entry.append("")
+        elif len(entry) == 1:
+            entry.append("")
+            entry.append("")
+        indexed_list.append(entry)
+
+    aa_mutant_df = pd.DataFrame(indexed_list, columns=["reference","position","mutant"])
+
+    # Replace 3 letter IUPAC protein codes with 1 letter protein codes
+    aa_mutant_df.replace({"reference": protein_letters_3to1, "mutant": protein_letters_3to1}, inplace=True)
+
+    # Append chromosomes to this DF to determine which genes don't have any specific mutation data
+    aa_mutant_df["GEN"] = df["GEN"]
+    final_df = aa_mutant_df[(aa_mutant_df["mutant"].str.len() == 1) 
+                            & (aa_mutant_df["GEN"].notnull())
+                            & (aa_mutant_df["GEN"] != "")]
+    SNP_list = pd.DataFrame()
+    # Merge all parts together so they can be added as one entry per line
+    SNP_list["SNPs"] = final_df["GEN"] + " " + final_df["reference"] + final_df["position"] + final_df["mutant"]
+    
+    # I do not think we need to keep duplicated entries here as we add back in on start pos in the second function
+    SNP_list = SNP_list.drop_duplicates()
+    return(SNP_list)
+
 
 def runmutfunc(file):
     df = pd.read_excel(file, header=4, keep_default_na=False)
     # Here we filter to only keep SNP mutations
-    is_SNP = df['TYPE'] == "SNP"
-    df = df[is_SNP]
-    df = df.reset_index()
-    genes = df['GEN'] != "NA"
-    df = df[genes]
-    df = df.reset_index()
-    # drop duplicates
-    df = df.drop_duplicates()
-    # Take only data from the SNPs that we want for checking in MutFunc
-    # Merge all parts together so they can be added as one entry per line
-    SNP_list = pd.DataFrame()
-    # SNP_list["SNPs"] = "chr" + " " + df["Start POS"].astype(str) + " " + df["REF"] + " " + df["ALT"]
-    SNP_list["SNPs"] = df["GEN"] + " " + df["∆AA"].astype(str)
-    # I do not think we need to keep duplicated entries here as we add back in on start pos in the second function
-    SNP_list = SNP_list.drop_duplicates()
+    snps_df = extract_snps(df)
+    SNP_list = convert_snp_mutfunc(snps_df)
+
     # time now to learn how to access the website through python, looking at the mechanize package
     br = mechanize.Browser()
     br.open("http://www.mutfunc.com/submit#")
@@ -51,6 +86,7 @@ def runmutfunc(file):
 
     br.submit()
     base_url = br.geturl()
+    SNP_list.to_csv('test.csv',index=False, header=False)
     # cannot figure out how to have the url updated from the wait page to the results page, even though it is redirected
     # so we will just set an arbitrarily long wait time where we then assume that the loading as finished and we move to
     # the export page which lets us download the files
@@ -59,7 +95,7 @@ def runmutfunc(file):
     new_url = str(base_url).replace("wait", "export")
     urllib.request.urlretrieve(new_url, file + ".gz")
     mut_func_file = file + ".gz"
-    return mut_func_file
+    return(mut_func_file)
     # Here we then want to save this file so that it can be added to the field when experiments are added or mutation
     # data is attached
     # extract_files("C:/Users/samue/Desktop/Thesis/35_42C.csv.xlsx.gz", mutation_update_df)
