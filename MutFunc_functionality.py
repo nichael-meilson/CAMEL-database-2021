@@ -105,6 +105,44 @@ def runmutfunc(file):
     # zip.write("Mutations with Mutfunc results.xlsx")
     # zip.close()
 
+def convert_aa_column_3to1letter(df, column='∆AA'):
+    # Converts the given column of a dataframe from having 3 letter IUPAC protein codes to 1 letter codes
+    # Returns the same input df but with the converted '∆AA' column
+    # Ex: Phe455Val --> F445V
+
+    # Mutfunc switched to 1 letter codes
+    # Split numbers and test in cell (ie. 'Pro375Ser' --> ['Pro','375','Ser'])
+    df_split = df[column].str.findall(r'[A-Za-z]+|\d+')
+
+    # Iterate through series to add empty values to get matching array lengths 
+    # ie. ['Lys','8'] --> ['Lys','8','']
+    # ie. ['Pro'] --> ['Pro','','']
+    # Results in a DF with "reference","position","mutant" as columns
+    indexed_list = list()
+    for entry in df_split:
+        if len(entry) == 2:
+            entry.append("")
+        elif len(entry) == 1:
+            entry.append("")
+            entry.append("")
+        indexed_list.append(entry)
+
+    aa_mutant_df = pd.DataFrame(indexed_list).loc[:,:2]
+    aa_mutant_df.columns = ["reference","position","mutant"]
+
+    # Replace 3 letter IUPAC protein codes with 1 letter protein codes
+    # aa_mutant_df.replace({"reference": protein_letters_3to1, "mutant": protein_letters_3to1}, inplace=True)
+    # aa_mutant_df
+    for i in range(0,len(aa_mutant_df)):
+        try:
+            aa_mutant_df.iloc[i]["reference"] = protein_letters_3to1[aa_mutant_df.iloc[i]["reference"]]
+            aa_mutant_df.iloc[i]["mutant"] = protein_letters_3to1[aa_mutant_df.iloc[i]["mutant"]]
+        except:
+            pass
+
+    df[column] = aa_mutant_df["reference"]+aa_mutant_df["position"]+aa_mutant_df["mutant"]
+    return(df)
+
 
 def extract_files(mut_func_file, mutation_data_frame):
     # now we have the zipped file and we want to unzip it and reach each file one by one and collect the important parts
@@ -114,9 +152,7 @@ def extract_files(mut_func_file, mutation_data_frame):
     # need to also add information about what each column represents
     df = mutation_data_frame
     # Remove intergenic mutations, but keep everything else
-    genes = df['GEN'] != "NA"
-    df = df[genes]
-    df = df.reset_index()
+    df = df[df["GEN"] != 'NA']
     columns_to_add = ["", "refaa", "altaa", "impact", "score", "ic", "ddg", "pdb_id", "sequence", "accession",
                       "modification_type", "site_function", "function_evidence", "predicted_kinase", "probability_loss",
                       "knockout_pvalue", "tf", "Category of Mutation"]
