@@ -161,8 +161,9 @@ def extract_files(mut_func_file, mutation_data_frame):
                       "modification_type", "site_function", "function_evidence", "predicted_kinase", "probability_loss",
                       "knockout_pvalue", "tf", "Category of Mutation"]
     df = df.reindex(columns=df.columns.tolist() + columns_to_add)
+    df = convert_aa_column_3to1letter(df)
     df.fillna('', inplace=True)
-    
+
     zip_file_object = zipfile.ZipFile(mut_func_file, 'r')
     # Each file has a different header length so we will do each individually as well as different requirements of what
     # data to retrieve
@@ -170,60 +171,54 @@ def extract_files(mut_func_file, mutation_data_frame):
     p_sites = zip_file_object.open(zip_file_object.namelist()[0])
     p_sites_mutations = pd.read_csv(p_sites, skiprows=24, header=0, delimiter='\t')
     # check to see if the file is empty outside of the header
-    //TODO
     if p_sites_mutations.empty:
         pass
     else:
-        index = 0
-        while index < p_sites_mutations.shape[0]:
-            for rownumber, mutation in df.loc[df['GEN'] == p_sites_mutations.loc[index, "gene"]].iterrows():
-                if df.loc[rownumber, '∆AA'][0] == p_sites_mutations.loc[index, "refaa"] \
-                        and df.loc[rownumber, '∆AA'][-1] == p_sites_mutations.loc[index, "altaa"] \
-                        and int(df.loc[rownumber, '∆AA'][1:-1]) == p_sites_mutations.loc[index, "posaa"]:
-                    df.loc[rownumber, "refaa"] = p_sites_mutations.loc[index, "refaa"]
-                    df.loc[rownumber, "altaa"] = p_sites_mutations.loc[index, "altaa"]
-                    df.loc[rownumber, "impact"] = p_sites_mutations.loc[index, "impact"]
-                    df.loc[rownumber, "site_function"] = p_sites_mutations.loc[index, "site_function"]
-                    df.loc[rownumber, "function_evidence"] = p_sites_mutations.loc[index, "function_evidence"]
-                    df.loc[rownumber, "predicted_kinase"] = p_sites_mutations.loc[index, "predicted_kinase"]
-                    df.loc[rownumber, "probability_loss"] = p_sites_mutations.loc[index, "probability_loss"]
-                    if df.loc[rownumber, "Category of Mutation"] != "":
-                        df.loc[rownumber, "Category of Mutation"] += ", Psites"
+        for i in range(0, len(df)):
+            for j in range(0, len(p_sites_mutations)):
+                if df.loc[i, "GEN"] == p_sites_mutations.loc[j, "gene"]\
+                    and df.loc[i, "single_letter_reference"] == p_sites_mutations.loc[j, "refaa"]\
+                    and df.loc[i, "single_letter_mutant"] == p_sites_mutations.loc[j, "altaa"]:
+                    df.loc[i, "refaa"] = p_sites_mutations.loc[j, "refaa"]
+                    df.loc[i, "altaa"] = p_sites_mutations.loc[j, "altaa"]
+                    df.loc[i, "impact"] = p_sites_mutations.loc[j, "impact"]
+                    df.loc[i, "site_function"] = p_sites_mutations.loc[j, "site_function"]
+                    df.loc[i, "function_evidence"] = p_sites_mutations.loc[j, "function_evidence"]
+                    df.loc[i, "predicted_kinase"] = p_sites_mutations.loc[j, "predicted_kinase"]
+                    df.loc[i, "probability_loss"] = p_sites_mutations.loc[j, "probability_loss"]
+                    if df.loc[i, "Category of Mutation"] != "" and "Psites" not in df.loc[i,'Category of Mutation']:
+                        df.loc[i, "Category of Mutation"] += ", Psites"
                     else:
-                        df.loc[rownumber, "Category of Mutation"] = "Psites"
-            index += 1
+                        df.loc[i, "Category of Mutation"] = "Psites"
     p_sites.close()
+
     # now we do start_stop
     start_stop = zip_file_object.open(zip_file_object.namelist()[1])
     # Need to try/except block this file because it is the only one that does not include a header for Mutfunc results
     # and can cause some issues because of this since it has been empty most of the time
-    //TODO
     try:
         start_stop_mutations = pd.read_csv(start_stop, skiprows=11, header=None, delimiter='\t', index_col=False)
         if start_stop_mutations.empty:
             pass
         else:
-            # loop through mutations and
-            index = 0
-            while index < start_stop_mutations.shape[0]:
-                for rownumber, mutation in df.loc[df['GEN'] == start_stop_mutations.loc[index, "gene"]].iterrows():
-                    if df.loc[rownumber, '∆AA'][0] == start_stop_mutations.loc[index, "refaa"] \
-                            and df.loc[rownumber, '∆AA'][-1] == start_stop_mutations.loc[index, "altaa"] \
-                            and int(df.loc[rownumber, '∆AA'][1:-1]) == start_stop_mutations.loc[index, "posaa"]:
-                        df.loc[rownumber, "refaa"] = start_stop_mutations.loc[index, 6]
-                        df.loc[rownumber, "altaa"] = start_stop_mutations.loc[index, 7]
-                        df.loc[rownumber, "impact"] = start_stop_mutations.loc[index, 8]
-                        if df.loc[rownumber, "Category of Mutation"] != "":
-                            df.loc[rownumber, "Category of Mutation"] += ", Start_Stop"
+            for i in range(0, len(df)):
+                for j in range(0, len(start_stop_mutations)):
+                    if df.loc[i, "GEN"] == start_stop_mutations.loc[j, "gene"]\
+                        and df.loc[i, "single_letter_reference"] == start_stop_mutations.loc[j, "refaa"]\
+                        and df.loc[i, "single_letter_mutant"] == start_stop_mutations.loc[j, "altaa"]:
+                        df.loc[i, "refaa"] = start_stop_mutations.loc[j, "refaa"]
+                        df.loc[i, "altaa"] = start_stop_mutations.loc[j, "altaa"]
+                        df.loc[i, "impact"] = start_stop_mutations.loc[j, "impact"]
+                        if df.loc[i, "Category of Mutation"] != "" and "Start_Stop" not in df.loc[i,'Category of Mutation']:
+                            df.loc[i, "Category of Mutation"] += ", Start_Stop"
                         else:
-                            df.loc[rownumber, "Category of Mutation"] = "Start_Stop"
-                index += 1
+                            df.loc[i, "Category of Mutation"] = "Start_Stop"
     except:
         pass
     start_stop.close()
+
     interfaces = zip_file_object.open(zip_file_object.namelist()[2])
     interfaces_mutations = pd.read_csv(interfaces, skiprows=20, header=0, delimiter="\t", index_col=False)
-
     if interfaces_mutations.empty:
         pass
     else:
@@ -237,120 +232,118 @@ def extract_files(mut_func_file, mutation_data_frame):
                     df.loc[i, "impact"] = interfaces_mutations.loc[j, "impact"]
                     df.loc[i, "pdb_id"] = interfaces_mutations.loc[j, "pdb_id"]
                     df.loc[i, "ddg"] = interfaces_mutations.loc[j, "ddg"]
-                    if df.loc[j, "Category of Mutation"] != "":
-                        df.loc[j, "Category of Mutation"] += ", Interfaces"
+                    if df.loc[i, "Category of Mutation"] != "" and "Interfaces" not in df.loc[i,'Category of Mutation']:
+                        df.loc[i, "Category of Mutation"] += ", Interfaces"
                     else:
-                        df.loc[j, "Category of Mutation"] = "Interfaces"
+                        df.loc[i, "Category of Mutation"] = "Interfaces"
     interfaces.close()
+
     other_ptms = zip_file_object.open(zip_file_object.namelist()[3])
     other_ptms_mutations = pd.read_csv(other_ptms, skiprows=16, header=0, delimiter="\t", index_col=False)
     if other_ptms_mutations.empty:
         pass
     else:
-        index = 0
-        while index < other_ptms_mutations.shape[0]:
-            for rownumber, mutation in df.loc[df['GEN'] == other_ptms_mutations.loc[index, "gene"]].iterrows():
-                if df.loc[rownumber, '∆AA'][0] == other_ptms_mutations.loc[index, "refaa"] \
-                        and df.loc[rownumber, '∆AA'][-1] == other_ptms_mutations.loc[index, "altaa"] \
-                        and int(df.loc[rownumber, '∆AA'][1:-1]) == other_ptms_mutations.loc[index, "posaa"]:
-                    df.loc[rownumber, "refaa"] = other_ptms_mutations.loc[index, "refaa"]
-                    df.loc[rownumber, "altaa"] = other_ptms_mutations.loc[index, "altaa"]
-                    df.loc[rownumber, "impact"] = other_ptms_mutations.loc[index, "impact"]
-                    df.loc[rownumber, "modification_type"] = interfaces_mutations.loc[index, "modification_type"]
-                    if df.loc[rownumber, "Category of Mutation"] != "":
-                        df.loc[rownumber, "Category of Mutation"] += ", Other_PTM"
+        for i in range(0, len(df)):
+            for j in range(0, len(other_ptms_mutations)):
+                if df.loc[i, "GEN"] == other_ptms_mutations.loc[j, "gene"]\
+                    and df.loc[i, "single_letter_reference"] == other_ptms_mutations.loc[j, "refaa"]\
+                    and df.loc[i, "single_letter_mutant"] == other_ptms_mutations.loc[j, "altaa"]:
+                    df.loc[i, "refaa"] = other_ptms_mutations.loc[j, "refaa"]
+                    df.loc[i, "altaa"] = other_ptms_mutations.loc[j, "altaa"]
+                    df.loc[i, "impact"] = other_ptms_mutations.loc[j, "impact"]
+                    df.loc[i, "modification_type"] = other_ptms_mutations.loc[j, "modification_type"]
+                    if df.loc[i, "Category of Mutation"] != "" and "Other_PTM" not in df.loc[i,'Category of Mutation']:
+                        df.loc[i, "Category of Mutation"] += ", Other_PTM"
                     else:
-                        df.loc[rownumber, "Category of Mutation"] = "Other_PTM"
-            index += 1
+                        df.loc[i, "Category of Mutation"] = "Other_PTM"
     other_ptms.close()
+
     linear_motifs = zip_file_object.open(zip_file_object.namelist()[4])
     linear_motifs_mutations = pd.read_csv(linear_motifs, skiprows=21, header=0, delimiter="\t", index_col=False)
     if linear_motifs_mutations.empty:
         pass
     else:
-        index = 0
-        while index < linear_motifs_mutations.shape[0]:
-            for rownumber, mutation in df.loc[df['GEN'] == linear_motifs_mutations.loc[index, "gene"]].iterrows():
-                if df.loc[rownumber, '∆AA'][0] == linear_motifs_mutations.loc[index, "refaa"] \
-                        and df.loc[rownumber, '∆AA'][-1] == linear_motifs_mutations.loc[index, "altaa"] \
-                        and int(df.loc[rownumber, '∆AA'][1:-1]) == linear_motifs_mutations.loc[index, "posaa"]:
-                    df.loc[rownumber, "refaa"] = linear_motifs_mutations.loc[index, "refaa"]
-                    df.loc[rownumber, "altaa"] = linear_motifs_mutations.loc[index, "altaa"]
-                    df.loc[rownumber, "impact"] = linear_motifs_mutations.loc[index, "impact"]
-                    df.loc[rownumber, "sequence"] = linear_motifs_mutations.loc[index, "sequence"]
-                    df.loc[rownumber, "accession"] = linear_motifs_mutations.loc[index, "accession"]
-                    if df.loc[rownumber, "Category of Mutation"] != "":
-                        df.loc[rownumber, "Category of Mutation"] += ", Linear_Motif"
+        for i in range(0, len(df)):
+            for j in range(0, len(linear_motifs_mutations)):
+                if df.loc[i, "GEN"] == linear_motifs_mutations.loc[j, "gene"]\
+                    and df.loc[i, "single_letter_reference"] == linear_motifs_mutations.loc[j, "refaa"]\
+                    and df.loc[i, "single_letter_mutant"] == linear_motifs_mutations.loc[j, "altaa"]:
+                    df.loc[i, "refaa"] = linear_motifs_mutations.loc[j, "refaa"]
+                    df.loc[i, "altaa"] = linear_motifs_mutations.loc[j, "altaa"]
+                    df.loc[i, "impact"] = linear_motifs_mutations.loc[j, "impact"]
+                    df.loc[i, "sequence"] = linear_motifs_mutations.loc[j, "sequence"]
+                    df.loc[i, "accession"] = linear_motifs_mutations.loc[j, "accession"]
+                    if df.loc[i, "Category of Mutation"] != "" and "Linear_Motif" not in df.loc[i,'Category of Mutation']:
+                        df.loc[i, "Category of Mutation"] += ", Linear_Motif"
                     else:
-                        df.loc[rownumber, "Category of Mutation"] = "Linear_Motif"
-            index += 1
+                        df.loc[i, "Category of Mutation"] = "Linear_Motif"
     linear_motifs.close()
+
     conservation = zip_file_object.open(zip_file_object.namelist()[5])
     conservation_mutations = pd.read_csv(conservation, skiprows=16, header=0, delimiter="\t", index_col=False)
     if conservation_mutations.empty:
         pass
     else:
-        index = 0
-        while index < conservation_mutations.shape[0]:
-            for rownumber, mutation in df.loc[df['GEN'] == conservation_mutations.loc[index, "gene"]].iterrows():
-                if df.loc[rownumber, '∆AA'][0] == conservation_mutations.loc[index, "refaa"] \
-                        and df.loc[rownumber, '∆AA'][-1] == conservation_mutations.loc[index, "altaa"] \
-                        and int(df.loc[rownumber, '∆AA'][1:-1]) == conservation_mutations.loc[index, "posaa"]:
-                    df.loc[rownumber, "refaa"] = conservation_mutations.loc[index, "refaa"]
-                    df.loc[rownumber, "altaa"] = conservation_mutations.loc[index, "altaa"]
-                    df.loc[rownumber, "impact"] = conservation_mutations.loc[index, "impact"]
-                    df.loc[rownumber, "score"] = conservation_mutations.loc[index, "score"]
-                    df.loc[rownumber, "ic"] = conservation_mutations.loc[index, "ic"]
-                    if df.loc[rownumber, "Category of Mutation"] != "":
-                        df.loc[rownumber, "Category of Mutation"] += ", Conservation"
+        for i in range(0, len(df)):
+            for j in range(0, len(conservation_mutations)):
+                if df.loc[i, "GEN"] == conservation_mutations.loc[j, "gene"]\
+                    and df.loc[i, "single_letter_reference"] == conservation_mutations.loc[j, "refaa"]\
+                    and df.loc[i, "single_letter_mutant"] == conservation_mutations.loc[j, "altaa"]:
+                    df.loc[i, "refaa"] = conservation_mutations.loc[j, "refaa"]
+                    df.loc[i, "altaa"] = conservation_mutations.loc[j, "altaa"]
+                    df.loc[i, "impact"] = conservation_mutations.loc[j, "impact"]
+                    df.loc[i, "score"] = conservation_mutations.loc[j, "score"]
+                    df.loc[i, "ic"] = conservation_mutations.loc[j, "ic"]
+                    if df.loc[i, "Category of Mutation"] != "" and "Conservation" not in df.loc[i,'Category of Mutation']:
+                        df.loc[i, "Category of Mutation"] += ", Conservation"
                     else:
-                        df.loc[rownumber, "Category of Mutation"] = "Conservation"
-            index += 1
+                        df.loc[i, "Category of Mutation"] = "Conservation"
     conservation.close()
+
     stability = zip_file_object.open(zip_file_object.namelist()[6])
     stability_mutations = pd.read_csv(stability, skiprows=17, header=0, delimiter="\t", index_col=False)
     if stability_mutations.empty:
         pass
     else:
-        index = 0
-        while index < stability_mutations.shape[0]:
-            for rownumber, mutation in df.loc[df['GEN'] == stability_mutations.loc[index, "gene"]].iterrows():
-                if df.loc[rownumber, '∆AA'][0] == stability_mutations.loc[index, "refaa"] \
-                        and df.loc[rownumber, '∆AA'][-1] == stability_mutations.loc[index, "altaa"] \
-                        and int(df.loc[rownumber, '∆AA'][1:-1]) == stability_mutations.loc[index, "posaa"]:
-                    df.loc[rownumber, "refaa"] = stability_mutations.loc[index, "refaa"]
-                    df.loc[rownumber, "altaa"] = stability_mutations.loc[index, "altaa"]
-                    df.loc[rownumber, "impact"] = stability_mutations.loc[index, "impact"]
-                    df.loc[rownumber, "pdb_id"] = stability_mutations.loc[index, "pdb_id"]
-                    df.loc[rownumber, "ddg"] = stability_mutations.loc[index, "ddg"]
-                    if df.loc[rownumber, "Category of Mutation"] != "":
-                        df.loc[rownumber, "Category of Mutation"]+= ", Stability"
+        for i in range(0, len(df)):
+            for j in range(0, len(stability_mutations)):
+                if df.loc[i, "GEN"] == stability_mutations.loc[j, "gene"]\
+                    and df.loc[i, "single_letter_reference"] == stability_mutations.loc[j, "refaa"]\
+                    and df.loc[i, "single_letter_mutant"] == stability_mutations.loc[j, "altaa"]:
+                    df.loc[i, "refaa"] = stability_mutations.loc[j, "refaa"]
+                    df.loc[i, "altaa"] = stability_mutations.loc[j, "altaa"]
+                    df.loc[i, "impact"] = stability_mutations.loc[j, "impact"]
+                    df.loc[i, "pdb_id"] = stability_mutations.loc[j, "pdb_id"]
+                    df.loc[i, "ddg"] = stability_mutations.loc[j, "ddg"]
+                    if df.loc[i, "Category of Mutation"] != "" and "Stability" not in df.loc[i,'Category of Mutation']:
+                        df.loc[i, "Category of Mutation"] += ", Stability"
                     else:
-                        df.loc[rownumber, "Category of Mutation"] = "Stability"
-            index += 1
+                        df.loc[i, "Category of Mutation"] = "Stability"
     stability.close()
+
     tfbs = zip_file_object.open(zip_file_object.namelist()[7])
     tfbs_mutations = pd.read_csv(tfbs, skiprows=28, header=0, delimiter="\t", index_col=False)
     if tfbs_mutations.empty:
         pass
     else:
-        index = 0
-        while index < tfbs_mutations.shape[0] - 1:
-            for rownumber, mutation in df.loc[df['GEN'] == tfbs_mutations.loc[index, "gene"]].iterrows():
-                if df.loc[rownumber, '∆AA'][0] == tfbs_mutations.loc[index, "refaa"] \
-                        and df.loc[rownumber, '∆AA'][-1] == tfbs_mutations.loc[index, "altaa"] \
-                        and int(df.loc[rownumber, '∆AA'][1:-1]) == tfbs_mutations.loc[index, "posaa"]:
-                    df.loc[rownumber, "refaa"] = tfbs_mutations.loc[index, "refaa"]
-                    df.loc[rownumber, "altaa"] = tfbs_mutations.loc[index, "altaa"]
-                    df.loc[rownumber, "impact"] = tfbs_mutations.loc[index, "impact"]
-                    df.loc[rownumber, "tf"] = tfbs_mutations.loc[index, "tf"]
-                    df.loc[rownumber, "knockout_pvalue"] = tfbs_mutations.loc[index, "knockout_pvalue"]
-                    if df.loc[rownumber, "Category of Mutation"] != "":
-                        df.loc[rownumber, "Category of Mutation"] += ", TFBS"
+        for i in range(0, len(df)):
+            for j in range(0, len(tfbs_mutations)):
+                if df.loc[i, "GEN"] == tfbs_mutations.loc[j, "gene"]\
+                    and df.loc[i, "single_letter_reference"] == tfbs_mutations.loc[j, "refaa"]\
+                    and df.loc[i, "single_letter_mutant"] == tfbs_mutations.loc[j, "altaa"]:
+                    df.loc[i, "refaa"] = tfbs_mutations.loc[j, "refaa"]
+                    df.loc[i, "altaa"] = tfbs_mutations.loc[j, "altaa"]
+                    df.loc[i, "impact"] = tfbs_mutations.loc[j, "impact"]
+                    df.loc[i, "tf"] = tfbs_mutations.loc[j, "tf"]
+                    df.loc[i, "knockout_pvalue"] = tfbs_mutations.loc[j, "knockout_pvalue"]
+                    if df.loc[i, "Category of Mutation"] != "" and "TFBS" not in df.loc[i,'Category of Mutation']:
+                        df.loc[i, "Category of Mutation"] += ", TFBS"
                     else:
-                        df.loc[rownumber, "Category of Mutation"] = "TFBS"
-            index += 1
+                        df.loc[i, "Category of Mutation"] = "TFBS"
     tfbs.close()
+
+    # Drop the columns in the df used for the matching/indexing
+    df.drop(columns=["single_letter_reference", "single_letter_mutant", "single_letter_position"], inplace=True)
     return df
 
 
