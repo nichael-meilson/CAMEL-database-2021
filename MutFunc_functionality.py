@@ -141,6 +141,10 @@ def convert_aa_column_3to1letter(df, column='∆AA'):
             pass
 
     df[column] = aa_mutant_df["reference"]+aa_mutant_df["position"]+aa_mutant_df["mutant"]
+    df["single_letter_reference"] = aa_mutant_df["reference"]
+    df["single_letter_position"] = aa_mutant_df["position"]
+    df["single_letter_mutant"] = aa_mutant_df["mutant"]
+
     return(df)
 
 
@@ -157,14 +161,16 @@ def extract_files(mut_func_file, mutation_data_frame):
                       "modification_type", "site_function", "function_evidence", "predicted_kinase", "probability_loss",
                       "knockout_pvalue", "tf", "Category of Mutation"]
     df = df.reindex(columns=df.columns.tolist() + columns_to_add)
+    df.fillna('', inplace=True)
+    
     zip_file_object = zipfile.ZipFile(mut_func_file, 'r')
-    df = df.fillna('')
     # Each file has a different header length so we will do each individually as well as different requirements of what
     # data to retrieve
     # first we do psites
     p_sites = zip_file_object.open(zip_file_object.namelist()[0])
     p_sites_mutations = pd.read_csv(p_sites, skiprows=24, header=0, delimiter='\t')
     # check to see if the file is empty outside of the header
+    //TODO
     if p_sites_mutations.empty:
         pass
     else:
@@ -191,6 +197,7 @@ def extract_files(mut_func_file, mutation_data_frame):
     start_stop = zip_file_object.open(zip_file_object.namelist()[1])
     # Need to try/except block this file because it is the only one that does not include a header for Mutfunc results
     # and can cause some issues because of this since it has been empty most of the time
+    //TODO
     try:
         start_stop_mutations = pd.read_csv(start_stop, skiprows=11, header=None, delimiter='\t', index_col=False)
         if start_stop_mutations.empty:
@@ -220,22 +227,20 @@ def extract_files(mut_func_file, mutation_data_frame):
     if interfaces_mutations.empty:
         pass
     else:
-        index = 0
-        while index < interfaces_mutations.shape[0]:
-            for rownumber, mutation in df.loc[df['GEN'] == interfaces_mutations.loc[index, "gene"]].iterrows():
-                if df.loc[rownumber, '∆AA'][0] == interfaces_mutations.loc[index, "refaa"] \
-                        and df.loc[rownumber, '∆AA'][-1] == interfaces_mutations.loc[index, "altaa"] \
-                        and int(df.loc[rownumber, '∆AA'][1:-1]) == interfaces_mutations.loc[index, "posaa"]:
-                    df.loc[rownumber, "refaa"] = interfaces_mutations.loc[index, "refaa"]
-                    df.loc[rownumber, "altaa"] = interfaces_mutations.loc[index, "altaa"]
-                    df.loc[rownumber, "impact"] = interfaces_mutations.loc[index, "impact"]
-                    df.loc[rownumber, "pdb_id"] = interfaces_mutations.loc[index, "pdb_id"]
-                    df.loc[rownumber, "ddg"] = interfaces_mutations.loc[index, "ddg"]
-                    if df.loc[rownumber, "Category of Mutation"] != "":
-                        df.loc[rownumber, "Category of Mutation"] += ", Interfaces"
+        for i in range(0, len(df)):
+            for j in range(0, len(interfaces_mutations)):
+                if df.loc[i, "GEN"] == interfaces_mutations.loc[j, "gene"]\
+                    and df.loc[i, "single_letter_reference"] == interfaces_mutations.loc[j, "refaa"]\
+                    and df.loc[i, "single_letter_mutant"] == interfaces_mutations.loc[j, "altaa"]:
+                    df.loc[i, "refaa"] = interfaces_mutations.loc[j, "refaa"]
+                    df.loc[i, "altaa"] = interfaces_mutations.loc[j, "altaa"]
+                    df.loc[i, "impact"] = interfaces_mutations.loc[j, "impact"]
+                    df.loc[i, "pdb_id"] = interfaces_mutations.loc[j, "pdb_id"]
+                    df.loc[i, "ddg"] = interfaces_mutations.loc[j, "ddg"]
+                    if df.loc[j, "Category of Mutation"] != "":
+                        df.loc[j, "Category of Mutation"] += ", Interfaces"
                     else:
-                        df.loc[rownumber, "Category of Mutation"] = "Interfaces"
-            index += 1
+                        df.loc[j, "Category of Mutation"] = "Interfaces"
     interfaces.close()
     other_ptms = zip_file_object.open(zip_file_object.namelist()[3])
     other_ptms_mutations = pd.read_csv(other_ptms, skiprows=16, header=0, delimiter="\t", index_col=False)
