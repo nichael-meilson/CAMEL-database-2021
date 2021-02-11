@@ -86,7 +86,7 @@ def runmutfunc(file):
 
     br.submit()
     base_url = br.geturl()
-    SNP_list.to_csv('test.csv',index=False, header=False)
+    # SNP_list.to_csv('test.csv',index=False, header=False)
     # cannot figure out how to have the url updated from the wait page to the results page, even though it is redirected
     # so we will just set an arbitrarily long wait time where we then assume that the loading as finished and we move to
     # the export page which lets us download the files

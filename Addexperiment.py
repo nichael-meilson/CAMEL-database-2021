@@ -386,5 +386,5 @@ def remove_experiment(eid):
 # for fname in glob.glob(path + '\\*'):
 #     get_data_and_add_experiment(fname,)
 #
-add_mutation_to_experiment('C:/Users/samue/Desktop/Thesis/ALEDB_conversion/MergedExperimentstoUpdate/982_Atsumi S_2010.xlsx')
+# add_mutation_to_experiment('C:/Users/samue/Desktop/Thesis/ALEDB_conversion/MergedExperimentstoUpdate/982_Atsumi S_2010.xlsx')
 
