@@ -30,17 +30,15 @@ def locations(file):
     df = df.reset_index()
     df = df.drop(columns="index")
     # only works for four strains downloaded
-    strain_id = df.loc[1, "CHROM"]
+    strain_id = df['CHROM_ID'].unique()[0]
     if strain_id == "NC_000913":
-        reference_genome = open("C:/Users/samue/Desktop/Thesis/ReferenceGenomes/EcoliNC000913.txt", 'r', encoding='UTF-8')
+        reference_genome = open("reference_genomes/EcoliNC000913.txt", 'r', encoding='UTF-8')
     elif strain_id == "NC_007779":
-        reference_genome = open("C:/Users/samue/Desktop/Thesis/ReferenceGenomes/EscherichiacoliNC007779.txt", 'r', encoding='UTF-8')
+        reference_genome = open("reference_genomes/EscherichiacoliNC007779.txt", 'r', encoding='UTF-8')
     elif strain_id == "REL606":
-        reference_genome = open("C:/Users/samue/Desktop/Thesis/ReferenceGenomes/EscherichiacoliBstr.REL606.txt", 'r',
-                                encoding='UTF-8')
+        reference_genome = open("reference_genomes/EscherichiacoliBstr.REL606.txt", 'r', encoding='UTF-8')
     elif strain_id == "CP009273":
-        reference_genome = open("C:/Users/samue/Desktop/Thesis/ReferenceGenomes/EColiCP009273.txt", 'r',
-                                encoding='UTF-8')
+        reference_genome = open("reference_genomes/EColiCP009273.txt", 'r', encoding='UTF-8')
     # If none of these strains are in our dataset we end the function
     else:
         print("This strain of E. coli is not available right now")
@@ -67,6 +65,7 @@ def locations(file):
     if gene_name and not seq == "":
         gene_dict[gene_name] = seq
     # collect all fasta sequences for each gene in our mutation list
+    print(gene_dict)
     final_list = ""
     for rownumber, mutation in df.iterrows():
         for gene in re.split(', |;', mutation[6]):
@@ -74,8 +73,7 @@ def locations(file):
             try:
                 final_list += str(gene_dict[gene]) + "\n"
             except KeyError:
-                gene_synonyms = open("C:/Users/samue/Desktop/Thesis/ReferenceGenomes/Ecoli_gene_synonyms.tab", 'r',
-                                    encoding='UTF-8')
+                gene_synonyms = open("reference_genomes/Ecoli_gene_synonyms.tab", 'r', encoding='UTF-8')
                 for line in gene_synonyms:
                     if gene in line:
                         names = line.split("\t")[1]

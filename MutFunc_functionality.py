@@ -95,7 +95,7 @@ def runmutfunc(file):
     new_url = str(base_url).replace("wait", "export")
     urllib.request.urlretrieve(new_url, file + ".gz")
     mut_func_file = file + ".gz"
-    return(mut_func_file)
+    return extract_files(mut_func_file, df)
     # Here we then want to save this file so that it can be added to the field when experiments are added or mutation
     # data is attached
     # extract_files("C:/Users/samue/Desktop/Thesis/35_42C.csv.xlsx.gz", mutation_update_df)
@@ -157,7 +157,7 @@ def extract_files(mut_func_file, mutation_data_frame):
     df = mutation_data_frame
     # Remove intergenic mutations, but keep everything else
     df = df[df["GEN"] != 'NA']
-    columns_to_add = ["", "refaa", "altaa", "impact", "score", "ic", "ddg", "pdb_id", "sequence", "accession",
+    columns_to_add = ["refaa", "altaa", "impact", "score", "ic", "ddg", "pdb_id", "sequence", "accession",
                       "modification_type", "site_function", "function_evidence", "predicted_kinase", "probability_loss",
                       "knockout_pvalue", "tf", "Category of Mutation"]
     df = df.reindex(columns=df.columns.tolist() + columns_to_add)
