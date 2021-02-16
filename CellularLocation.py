@@ -3,6 +3,7 @@
 # Location of files needs to be updated throughout the script based on current directory used
 
 import pandas as pd
+import datetime
 import re
 import time
 from selenium import webdriver
@@ -113,10 +114,10 @@ def cello2go(genes):
             old_position = position
             # first we open up our webpage
             # This path needs to be where the chromedriver executable is stored
-            path = "C:/Users/samue/Desktop/Thesis/geckodriver/chromedriver.exe"
+            path = "reference_genomes/chromedriver"
             options = webdriver.ChromeOptions()
             prefs = {
-                "download.default_directory": r"C:\Users\samue\PycharmProjects\Thesis",
+                "download.default_directory": r"reference_genomes\cello_files",
                 "download.directory_upgrade": "true",
                 "download.prompt_for_download": "false",
                 "disable-popup-blocking": "true"
@@ -130,7 +131,7 @@ def cello2go(genes):
             # Testing why one did not work
             # print(sequence)
             pyperclip.copy(sequence)
-            paste_sequence.send_keys(Keys.CONTROL + "v")
+            paste_sequence.send_keys(Keys.COMMAND + "v")
             browser.find_element_by_xpath("/html/body/center/div[5]/form[1]/table/thead/tr/td[2]/button/span[2]").click()
             browser.find_element_by_xpath("/html/body/div[3]/ul/li[1]/label").click()
             submit_button = browser.find_element_by_id("do-blast")
@@ -166,6 +167,8 @@ def cello2go(genes):
                 mutation_location = "Innermembrane"
             else:
                 mutation_location = "Cytoplasmic"
+            print(datetime.datetime.now())
+            print(location_results)
             location_results.loc[len(location_results)] = [float(position.split(" ")[1]), ",".join(location_values), str(mutation_location)]
             browser.close()
             browser.quit()
