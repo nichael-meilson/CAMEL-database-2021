@@ -4,9 +4,9 @@ import requests as req
 import pandas as pd
 import re
 import glob
-from MutFunc_functionality import extract_files
-from MutFunc_functionality import runmutfunc
-from MutFunc_functionality import add_column_description
+from mutfunc_functionality import extract_files
+from mutfunc_functionality import runmutfunc
+from mutfunc_functionality import add_column_description
 from CellularLocation import *
 from Mechismo_functionality import *
 import zipfile
@@ -82,7 +82,8 @@ def get_data_and_add_experiment(file, mutfile =""):
     Field values key/value pairs that do not have a generated ID yet, use a
     random id that is prefixed with 'new_'.
     '''
-    base_url = "https://cameldatabase.com/CAMEL/"
+    # base_url = "https://cameldatabase.com/CAMEL/"
+    base_url = "localhost:8888/"
     api_url = base_url + "api"
     auth_url = base_url + "auth"
     exp_url = api_url + "/experiment"
@@ -91,8 +92,8 @@ def get_data_and_add_experiment(file, mutfile =""):
     attach_url = api_url + '/attachment'
     # Credentials
 
-    login = ''
-    password = ''
+    login = 'admin'
+    password = 'oUNr97fbrSr9UVOhj3'
 
     if not password:
         import getpass
@@ -103,8 +104,12 @@ def get_data_and_add_experiment(file, mutfile =""):
     All editing operations require a header containing a valid AuthToken.
     A token stays valid for one day.
     '''
+
+    print([login, password])
     auth_request = req.get(auth_url, auth=(login, password))
-    token = auth_request.headers['AuthToken']
+    
+    # token = auth_request.headers['AuthToken']
+    tolen = "68fb61f6-b4b9-4814-8d7f-508e666d5fbc"
 
     # Create the header we are going to send along
     auth_header = {'AuthToken': token}
@@ -226,16 +231,17 @@ def get_data_and_add_experiment(file, mutfile =""):
 
 def add_mutation_to_experiment(mutation_file):
     ## URLS
-    base_url = "https://cameldatabase.com/CAMEL/"
+    # base_url = "https://cameldatabase.com/CAMEL/"
+    base_url = "http://localhost:8888/"
     api_url = base_url + "api"
-    auth_url = base_url + "auth"
-
+    auth_url = api_url + "/auth/"
     exp_url = api_url + "/experiment"
     attach_url = api_url + '/attachment'
 
     ## Credentials
-    login = ''
-    password = ''
+    login = 'admin'
+    # password = 'oUNr97fbrSr9UVOhj3'
+    password = 'password'
 
     if not password:
         import getpass
@@ -283,6 +289,7 @@ def add_mutation_to_experiment(mutation_file):
         }
     }
     resp = req.put(added_exp_url, headers=auth_header, json=attach_exp)
+    print(resp.json)
     if resp.ok:
         print("Upload successful")
     else:
@@ -292,7 +299,7 @@ def add_mutation_to_experiment(mutation_file):
     # first we have to check the species to see if it is E. coli
     # To do so we use the api and pull the experiment information
     # to check if E. coli or Escherichia coli is a listed species
-    experiments = req.get("https://cameldatabase.com/CAMEL/api/experiment/" + eid).json()
+    experiments = req.get(exp_url + eid).json()
     for key, value in experiments.get("fields").get("1").items():
         if "Escherichia coli" in value:
             # check to see the organism, need to add Yeast or update so its more than just  E. Coli
@@ -338,8 +345,8 @@ def add_mutation_to_experiment(mutation_file):
             resp = req.put(added_exp_url, headers=auth_header, json=attach_exp)
 
             # After we run our script we remove the local version of the files
-            os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results.xlsx")
-            os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results_complete.xlsx")
+            # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results.xlsx")
+            # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results_complete.xlsx")
 
 
 def remove_experiment(eid):

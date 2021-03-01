@@ -7,7 +7,7 @@ import datetime
 import re
 import time
 from selenium import webdriver
-from selenium.common.exceptions import ElementClickInterceptedException, NoSuchElementException
+# from selenium.common.exceptions import ElementClickInterceptedException, NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait as wait
@@ -18,7 +18,8 @@ import os
 from zipfile import ZipFile
 import pyautogui
 import shutil
-
+import concurrent.futures
+import multiprocessing
 
 # it is possible we can work with strains that are not the most popular since we just want fasta
 def locations(file):
@@ -66,7 +67,6 @@ def locations(file):
     if gene_name and not seq == "":
         gene_dict[gene_name] = seq
     # collect all fasta sequences for each gene in our mutation list
-    print(gene_dict)
     final_list = ""
     for rownumber, mutation in df.iterrows():
         for gene in re.split(', |;', mutation[6]):
@@ -131,6 +131,7 @@ def cello2go(genes):
             # Testing why one did not work
             # print(sequence)
             pyperclip.copy(sequence)
+            print(sequence)
             paste_sequence.send_keys(Keys.COMMAND + "v")
             browser.find_element_by_xpath("/html/body/center/div[5]/form[1]/table/thead/tr/td[2]/button/span[2]").click()
             browser.find_element_by_xpath("/html/body/div[3]/ul/li[1]/label").click()
@@ -167,8 +168,7 @@ def cello2go(genes):
                 mutation_location = "Innermembrane"
             else:
                 mutation_location = "Cytoplasmic"
-            print(datetime.datetime.now())
-            print(location_results)
+            print(str(datetime.datetime.now().strftime("%H:%M:%S"))+": "+str(len(location_results)+1)+"/"+str(len(updated)))
             location_results.loc[len(location_results)] = [float(position.split(" ")[1]), ",".join(location_values), str(mutation_location)]
             browser.close()
             browser.quit()
@@ -177,7 +177,57 @@ def cello2go(genes):
             continue
     return location_results
 
-# genes = locations("C:/Users/samue/Desktop/Thesis/ALEDB_conversion/Experiment_Data/EnzymeProm3.csv.xlsx")
 
-# cello2go(genes)
+def get_batch_list(genes, N=4):
+    updated = genes.split(">")[1:]
+
+    # For test purposes, use the first 12 genes
+    updated = updated[0:12]
+    print(updated[0])
+    
+    # Split list of sequences into integer batch sizes
+    # It's likely that the number of sequences per batch isn't going to be a multiple
+    # of the total number of sequences, so let's add the remainder onto the last batch of sequence
+    current_batch = 0
+    remainder = len(updated)%N
+    # batch_size = int((len(updated)-remainder-N)/N)
+    batch_size = int((len(updated)-remainder)/N)
+    batch_list = []
+    print(remainder)
+    print(batch_size)
+
+    for i in range(0,N):
+        tmp_list = updated[current_batch:current_batch+batch_size]
+        current_batch+=batch_size+1
+        if i == N-1:
+            tmp_list.extend(tmp_list)
+        tmp_list = ">".join(tmp_list)
+        batch_list.append(tmp_list)
+
+    batch_list = [">"+string for string in batch_list]
+    text_file = open("test/updated_check.txt", "w")
+    text_file.write("".join(updated))
+    text_file.close()
+
+    text_file = open("test/batch_list_check.txt", "w")
+    text_file.write("".join(batch_list))
+    text_file.close()
+
+    return batch_list
+
+
+def run_cello2go(file, N=4):
+    genes = locations("test/test_mutation_file.xlsx")
+    batch_list = get_batch_list(genes, N)
+    result_list = []
+
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = executor.map(cello2go, batch_list)
+
+        for result in results:
+            result_list.append(result)
+
+    df = pd.concat(result_list)
+    df = df.reset_index().drop(columns='index')
+    return df
 
