@@ -93,7 +93,8 @@ def get_data_and_add_experiment(file, mutfile =""):
     # Credentials
 
     login = 'admin'
-    password = 'oUNr97fbrSr9UVOhj3'
+    # password = 'oUNr97fbrSr9UVOhj3'
+    password = 'password'
 
     if not password:
         import getpass
@@ -108,8 +109,7 @@ def get_data_and_add_experiment(file, mutfile =""):
     print([login, password])
     auth_request = req.get(auth_url, auth=(login, password))
     
-    # token = auth_request.headers['AuthToken']
-    tolen = "68fb61f6-b4b9-4814-8d7f-508e666d5fbc"
+    token = auth_request.headers['AuthToken']
 
     # Create the header we are going to send along
     auth_header = {'AuthToken': token}
@@ -315,7 +315,7 @@ def add_mutation_to_experiment(mutation_file):
             # check to see if we can run cell2go with this mutation file, if not we end here
             if list_of_genes == "False":
                 return
-            cell2go_results = cello2go(list_of_genes)
+            cell2go_results = run_cello2go(list_of_genes)
             df = pd.merge(df, cell2go_results, left_on="Start POS", right_on="Start POS", how='left')
             df = df.fillna("")
             df.to_excel("Mutation_results.xlsx", index=False)

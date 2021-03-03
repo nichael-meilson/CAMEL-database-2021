@@ -20,6 +20,8 @@ import pyautogui
 import shutil
 import concurrent.futures
 import multiprocessing
+import logging
+import sys
 
 # it is possible we can work with strains that are not the most popular since we just want fasta
 def locations(file):
@@ -98,10 +100,16 @@ def locations(file):
 # Throughout the function we use time.sleep to have the function wait for pages to load
 
 def cello2go(genes):
+    # Writes progress to a log file to see how far along the scraping is
+    logging.basicConfig(filename='cello.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
+
     old_position = ""
     cell2go_columns = ["Start POS", "Cello2go probabilities", "Location"]
     location_results = pd.DataFrame(columns=cell2go_columns)
     updated = genes.split(">")[1:]
+    total = len(updated)
+    complete = 0
+    logging.info('Starting scrape')
     for sequence in updated:
         try:
             sequence = ">" + sequence
@@ -175,48 +183,42 @@ def cello2go(genes):
         # just in case the sequence doesnt work this will then move on instead of stopping the program
         except:
             continue
+        complete += 1
+        logging.info('************************************************************************************************')
+        logging.info(f'Complete Scrapes: {complete}/{total}')
     return location_results
 
 
 def get_batch_list(genes, N=4):
     updated = genes.split(">")[1:]
 
-    # For test purposes, use the first 12 genes
-    updated = updated[0:12]
-    print(updated[0])
+    # For test purposes, use the first M genes
+    # Comment this out later
+    # M = 4
+    # updated = updated[0:M]
     
-    # Split list of sequences into integer batch sizes
-    # It's likely that the number of sequences per batch isn't going to be a multiple
-    # of the total number of sequences, so let's add the remainder onto the last batch of sequence
-    current_batch = 0
-    remainder = len(updated)%N
-    # batch_size = int((len(updated)-remainder-N)/N)
-    batch_size = int((len(updated)-remainder)/N)
-    batch_list = []
-    print(remainder)
-    print(batch_size)
+    # We need the N input of batch_division to be the size of the batch, not the number of sequence batches
+    total_batches = round(len(updated)/N)
 
-    for i in range(0,N):
-        tmp_list = updated[current_batch:current_batch+batch_size]
-        current_batch+=batch_size+1
-        if i == N-1:
-            tmp_list.extend(tmp_list)
-        tmp_list = ">".join(tmp_list)
-        batch_list.append(tmp_list)
+    batch_list = list(batch_division(updated, total_batches))
 
-    batch_list = [">"+string for string in batch_list]
-    text_file = open("test/updated_check.txt", "w")
-    text_file.write("".join(updated))
-    text_file.close()
+    final_batch_list = []
+    for sequences in batch_list:
+        final_batch_list.append(">".join(sequences))
 
-    text_file = open("test/batch_list_check.txt", "w")
-    text_file.write("".join(batch_list))
-    text_file.close()
+    final_batch_list = [">"+string for string in final_batch_list]
 
-    return batch_list
+    return final_batch_list
+
+
+def batch_division(l, n): 
+    # This returns a generator - don't think too much about it
+    for i in range(0, len(l), n):  
+        yield l[i:i + n] 
 
 
 def run_cello2go(file, N=4):
+    # Runs multiple browsers for webscraping - cuts down data processing time significantly
     genes = locations("test/test_mutation_file.xlsx")
     batch_list = get_batch_list(genes, N)
     result_list = []
