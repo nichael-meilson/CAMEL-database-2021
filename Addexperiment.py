@@ -20,27 +20,7 @@ path = ""
 
 # We need to update script so that you can also include a mutation file with it and that file joins the mutation field
 
-
-def get_data_and_add_experiment(file, mutfile =""):
-
-    df = pd.read_excel(file, skiprows=4)
-    df = df.fillna("")
-    # Take each value that was included as part of the metadata and is not left blank
-    val = df.loc[0, :].values.tolist()
-    # Convert data to proper type for updating to database (making everything JSON serializable)
-    integer_fields = [3, 16, 17, 26, 27, 28, 29, 32, 33, 38]
-    bool_fields = [8, 10, 12, 14, 19, 23, 36]
-    double_fields = [30]
-    entry = 0
-    while entry < len(val):
-        if val[entry] != "":
-            if entry in integer_fields:
-                val[entry] = int(val[entry])
-            elif entry in bool_fields:
-                val[entry] = bool(val[entry])
-            elif entry in double_fields:
-                val[entry] = float(val[entry])
-        entry += 1
+def _get_fielddict(val):
     # Create fields dictionary and check for multiple entries by looking for a semicolon
     start = 1
     fielddict = {}
@@ -68,7 +48,34 @@ def get_data_and_add_experiment(file, mutfile =""):
                 fielddict[str(start)] = {'new_' + str(counter): val[start]}
                 counter += 1
         start += 1
-    print(fielddict)
+    
+    return fielddict
+
+def _val_serializable(val):
+    # Convert data to proper type for updating to database (making everything JSON serializable)
+    integer_fields = [3, 16, 17, 26, 27, 28, 29, 32, 33, 38]
+    bool_fields = [8, 10, 12, 14, 19, 23, 36]
+    double_fields = [30]
+    entry = 0
+    while entry < len(val):
+        if val[entry] != "":
+            if entry in integer_fields:
+                val[entry] = int(val[entry])
+            elif entry in bool_fields:
+                val[entry] = bool(val[entry])
+            elif entry in double_fields:
+                val[entry] = float(val[entry])
+        entry += 1
+    return val
+
+def get_data_and_add_experiment(file, mutfile =""):
+
+    df = pd.read_excel(file, skiprows=4)
+    df = df.fillna("")
+    # Take each value that was included as part of the metadata and is not left blank
+    val = df.loc[0, :].values.tolist()
+    val = _val_serializable(val)
+    fielddict = _get_fielddict(val)
     # Get Reference information
     pubmed_id = val[-2]
     if pubmed_id == "":
@@ -83,13 +90,12 @@ def get_data_and_add_experiment(file, mutfile =""):
     random id that is prefixed with 'new_'.
     '''
     # base_url = "https://cameldatabase.com/CAMEL/"
-    base_url = "localhost:8888/"
+    base_url = "http://localhost:8888/"
     api_url = base_url + "api"
-    auth_url = base_url + "auth"
+    auth_url = api_url + "/auth/"
     exp_url = api_url + "/experiment"
-    field_url = api_url + "/field"
-    ref_url = api_url + "/reference"
-    attach_url = api_url + '/attachment'
+    attach_url = api_url + '/attachment/'
+
     # Credentials
 
     login = 'admin'
@@ -106,7 +112,6 @@ def get_data_and_add_experiment(file, mutfile =""):
     A token stays valid for one day.
     '''
 
-    print([login, password])
     auth_request = req.get(auth_url, auth=(login, password))
     
     token = auth_request.headers['AuthToken']
@@ -139,45 +144,48 @@ def get_data_and_add_experiment(file, mutfile =""):
             }
         ]
     }
+
     # Send the new experiment data
     # It will be added to the database
     # The JSON answer will be the same experiment, but with an assigned ID
+    # import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
     answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
     exp_id = answer['id']
     added_exp_url = exp_url + "/" + str(exp_id)
 
     # we check to see if there is a mutation file attached so we can upload it after the experiment is added, file needs
     # to be .xlsx
-    if mutfile != "":
-        # We upload the file to a temporary location on the server
-        attachment = {'file': open(mutfile, 'rb')}
-        resp = req.post(attach_url, files=attachment, headers=auth_header)
+    #TODO Fix the 404 later
+    # if mutfile != "":
+    #     # We upload the file to a temporary location on the server
+    #     attachment = {'file': open(mutfile, 'rb')}
+    #     resp = req.post(attach_url, files=attachment, headers=auth_header)
 
-        # Get the temporary id of the upload
-        tmp_uuid = resp.json()['uuid']
+    #     # Get the temporary id of the upload
+    #     tmp_uuid = resp.json()['uuid']
 
-        # Set the attachment field to the tmp id and name the file
-        # The file will be moved to the correct location
-        dest_file_name = "Mutation_Data.xlsx"
-        attach_exp = {
-            'fields': {
-                '36': {
-                    'new_1': {
-                        'uuid': tmp_uuid,
-                        'filename': dest_file_name}
-                }
-            }
-        }
-        resp = req.put(added_exp_url, headers=auth_header, json=attach_exp)
-    # Field value id's will not be assigned yet, until we request the complete object again
-    added_experiment = req.get(added_exp_url).json()
+    #     # Set the attachment field to the tmp id and name the file
+    #     # The file will be moved to the correct location
+    #     dest_file_name = "Mutation_Data.xlsx"
+    #     attach_exp = {
+    #         'fields': {
+    #             '36': {
+    #                 'new_1': {
+    #                     'uuid': tmp_uuid,
+    #                     'filename': dest_file_name}
+    #             }
+    #         }
+    #     }
+    #     resp = req.put(added_exp_url, headers=auth_header, json=attach_exp)
+    
 
     # Last we check to see if a mutation file was attached and then if it qualifies, we have to check the Species
     # to see if it is E. Coli or Yeast(eventually) and then also check to see what the strain is since we only work on
     # the standard most popular strain for both
     # First we have to check the species(starting with just E. Coli)
     if val[1] == "Escherichia coli" and mutfile != "":
-        mut_df = pd.read_excel(mutfile, sheet_name='Sheet1', header=4, keep_default_na=False)
+        mut_df = pd.read_excel(mutfile, sheet_name='Data', header=4, keep_default_na=False)
         mut_func_file = runmutfunc(mutfile)
         # Update our mutation excel file with the Mutfunc results and return it as a new file with appropriately
         # detailed headers
@@ -191,7 +199,9 @@ def get_data_and_add_experiment(file, mutfile =""):
         # check to see if we can run cell2go with this mutation file, if not we end here
         if list_of_genes == "False":
             return
-        cell2go_results = cello2go(list_of_genes)
+        # cell2go_results = cello2go(list_of_genes)
+        #TODO remove this later - test purposes only
+        cell2go_results = pd.read_csv('test/cello_output_raw.csv')
         df = pd.merge(df, cell2go_results, left_on="Start POS", right_on="Start POS", how='left')
         df = df.fillna('')
         # Need to drop duplicates here
@@ -222,9 +232,17 @@ def get_data_and_add_experiment(file, mutfile =""):
                 }
             }
         resp = req.put(added_exp_url, headers=auth_header, json=attach_exp)
+
+        # Add mutation data to experiment post request
+        # fielddict = _get_fielddict(val)
+
         # After we run our script we remove the local version of the files
-        os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results.xlsx")
-        os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results_complete.xlsx")
+        # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results.xlsx")
+        # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results_complete.xlsx")
+    else:
+        # Field value id's will not be assigned yet, until we request the complete object again
+        answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
+        added_experiment = req.get(added_exp_url).json()
 
 
 # Function to add mutation data to experiments, needs to be .xlsx
@@ -315,7 +333,9 @@ def add_mutation_to_experiment(mutation_file):
             # check to see if we can run cell2go with this mutation file, if not we end here
             if list_of_genes == "False":
                 return
-            cell2go_results = run_cello2go(list_of_genes)
+            #TODO comment this out later
+            # cell2go_results = run_cello2go(list_of_genes)
+            cello2go_results = pd.read_csv('test/cello_output_raw.csv')
             df = pd.merge(df, cell2go_results, left_on="Start POS", right_on="Start POS", how='left')
             df = df.fillna("")
             df.to_excel("Mutation_results.xlsx", index=False)
@@ -351,18 +371,18 @@ def add_mutation_to_experiment(mutation_file):
 
 def remove_experiment(eid):
 
-    # URLS
-    base_url = "https://cameldatabase.com/CAMEL/"
+    ## URLS
+    # base_url = "https://cameldatabase.com/CAMEL/"
+    base_url = "http://localhost:8888/"
     api_url = base_url + "api"
-    auth_url = base_url + "auth"
-
+    auth_url = api_url + "/auth/"
     exp_url = api_url + "/experiment"
-    field_url = api_url + "/field"
-    ref_url = api_url + "/reference"
+    attach_url = api_url + '/attachment'
 
-    # Credentials
-    login = ''
-    password = ''
+    ## Credentials
+    login = 'admin'
+    # password = 'oUNr97fbrSr9UVOhj3'
+    password = 'password'
 
     if not password:
         import getpass

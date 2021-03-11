@@ -5,10 +5,18 @@ import mechanize
 import pandas as pd
 import time
 import os
+import mutfunc_functionality
+
+def _format_SNP_list(SNP_list):
+    SNP_list[['gene', 'aa', 'pos']] = SNP_list['SNPs'].str.split(' ',expand=True)
+    mutfunc_functionality.convert_aa_column_3to1letter(SNP_list, column='aa')
+    series = SNP_list['gene'] + "/" + SNP_list['single_letter_reference'] + SNP_list['single_letter_position'] + SNP_list['single_letter_mutant']
+    result = pd.DataFrame(series, columns=["SNPs"])
+    result.fillna("", inplace=True)
+    result['Start POS'] = SNP_list['pos']
+    return result
 
 # Mechismo works with SNPs or with PTMs so we take only the SNPs in our mutations
-
-
 def run_mechismo(mutation_file):
     # Making Mechismo work automatically with CAMEL
     # Mechismo uses ids for each session so we can try using mechanize like in MutFunc
@@ -33,6 +41,8 @@ def run_mechismo(mutation_file):
     SNP_list= SNP_list[~SNP_list["SNPs"].str.contains('pseudogene')]
     SNP_list = SNP_list[~SNP_list["SNPs"].str.contains('noncoding')]
     SNP_list = SNP_list.drop_duplicates()
+    
+    SNP_list = _format_SNP_list(SNP_list)
 
     # Now that we have our list of mutations that match Mechismos guidelines we can start running the website
     br = mechanize.Browser()
@@ -62,7 +72,7 @@ def run_mechismo(mutation_file):
     br.retrieve(new_url, "Experiment.tsv")
 
     results = pd.read_csv("Experiment.tsv", sep="\t", header=0)
-    final_results = results[["name_a1", "name_b1", "mechProt", "mechChem", "mechDNA/RNA", "mech", "user input"]]
+    final_results = results[["name_a1", "name_b1", "mechProt", "mechChem", "mechDNA/RNA", "mech", "pos_a1"]]
     # Want to remove NaN from interactors to just get relevant information
     interactors = final_results['name_b1'].notna()
     updated_results = final_results[interactors]
@@ -71,7 +81,7 @@ def run_mechismo(mutation_file):
 
     # Remove [PROT] results
     updated_results = updated_results[updated_results['name_b1'] != "[PROT]"]
-    camel_results = pd.DataFrame(columns=['User Input', "Interactions/Score", "Total Interaction Score"])
+    camel_results = pd.DataFrame(columns=['Position', "Interactions/Score", "Total Interaction Score"])
 
     index = 0
     input_tracker = ''
@@ -79,7 +89,7 @@ def run_mechismo(mutation_file):
     total_score = ""
     for index, row in updated_results.iterrows():
         if not input_tracker == '':
-            if row["user input"] == input_tracker:
+            if row["pos_a1"] == input_tracker:
                 if "CHEM" in row["name_b1"]:
                     input_value += ", " + row["name_b1"] + ", " + str(row["mechChem"])
                 elif "DNA" in row["name_b1"]:
@@ -88,9 +98,9 @@ def run_mechismo(mutation_file):
                     input_value += ", " + row["name_b1"] + ", " + str(row["mechProt"])
                 continue
             else:
-                camel_results.loc[index] = [input_tracker.split(" "), input_value, total_score]
+                camel_results.loc[index] = [input_tracker, input_value, total_score]
                 index += 1
-        input_tracker = row["user input"]
+        input_tracker = row["pos_a1"]
         if "CHEM" in row["name_b1"]:
             input_value = row["name_b1"] + ", " + str(row["mechChem"])
         elif "DNA" in row["name_b1"]:
@@ -100,9 +110,9 @@ def run_mechismo(mutation_file):
         # This score could be a float instead
         total_score = str(row["mech"])
     # Have to add last entry
-    camel_results.loc[index] = [input_tracker.split(" "), input_value, total_score]
+    camel_results.loc[index] = [input_tracker, input_value, total_score]
     # Have to manipulate dataframe to match mutation file so they can be merged by Start Pos
-    camel_results = camel_results.rename(columns={'User Input': "Start POS"})
+    camel_results = camel_results.rename(columns={'Position': "Start POS"})
     camel_results["Start POS"] = pd.to_numeric(camel_results["Start POS"], errors='ignore')
     # print(camel_results)
     return camel_results
