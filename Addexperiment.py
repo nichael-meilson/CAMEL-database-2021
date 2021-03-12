@@ -20,6 +20,35 @@ path = ""
 
 # We need to update script so that you can also include a mutation file with it and that file joins the mutation field
 
+def _get_all_mutation_data(mutfile):
+    mut_df = pd.read_excel(mutfile, sheet_name='Data', header=4, keep_default_na=False)
+    # mut_func_file = runmutfunc(mutfile)
+    #TODO remove this later - test purposes only
+    mut_func_file = pd.read_csv('test/mutfunc_output_raw.csv')
+    # Update our mutation excel file with the Mutfunc results and return it as a new file with appropriately
+    # detailed headers
+    # updated_mutation_dataframe = extract_files(mut_func_file, mut_df)
+    # mechismo_results = run_mechismo(mutfile)
+    #TODO remove this later - test purposes only
+    mechismo_results = pd.read_csv('test/mechismo_output_raw.csv')
+    # Add mechismo results to complete mutation dataframe
+    df = pd.merge(mut_func_file, mechismo_results, left_on="Start POS", right_on="Start POS",
+                        how='left')
+    df = df.fillna('')
+    list_of_genes = locations(mutfile)
+    # check to see if we can run cell2go with this mutation file, if not we end here
+    if list_of_genes == "False":
+        return
+    # cell2go_results = cello2go(list_of_genes)
+    #TODO remove this later - test purposes only
+    cell2go_results = pd.read_csv('test/cello_output_raw.csv')
+    df = pd.merge(df, cell2go_results, left_on="Start POS", right_on="Start POS", how='left')
+    df = df.fillna('')
+    # Need to drop duplicates here
+    df = df.drop_duplicates()
+    return df
+
+
 def _get_fielddict(val):
     # Create fields dictionary and check for multiple entries by looking for a semicolon
     start = 1
@@ -31,11 +60,11 @@ def _get_fielddict(val):
             # adjust value to the real id
             # check to see if it is a new field that doesn't go in order, in this case the only one is field 47 which is
             # column 36 in the template and is mutation data complete
-            if start == 36:
-                fielddict[str(47)] = {}
-                fielddict[str(47)] = {'new_' + str(counter): val[start]}
-                start += 1
-                continue
+            # if start == 36:
+            #     fielddict[str(47)] = {}
+            #     fielddict[str(47)] = {'new_' + str(counter): val[start]}
+            #     start += 1
+            #     continue
             fielddict[str(start)] = {}
             # We allow commas in some text fields like comments and major outcomes, even though this doesnt check for
             # actual commas we just let this field go through, might need to update for 35 remarks as well in the future
@@ -50,6 +79,77 @@ def _get_fielddict(val):
         start += 1
     
     return fielddict
+
+
+def _add_mutations_to_fielddict(fielddict, mut_df):
+    # Should start at 36 from fielddict keys
+    _start_id = max([int(x) for x in list(fielddict.keys())])
+    # Should start at 21 from fielddict values where key = 36
+    _counter = int(list(fielddict[str(_start_id)].keys())[0].split('_')[1])
+
+    # Warning: these correspond to field_ids in the SQL db; try not to change them in the DB
+    field_mapper = {
+        'CHROM_ID': 41,
+        'Start POS': 42,
+        'End POS': 43,
+        'TYPE': 44,
+        'REF': 45,
+        'ALT': 46,
+        'GEN': 47,
+        '∆AA': 48,
+        'POP': 49,
+        'CLON': 50,
+        'TIME': 51,
+        'FREQ': 52,
+        'COM': 53,
+        'impact': 54,
+        'score': 55,
+        'ic': 56,
+        'ddg': 57,
+        'pdb_id': 58,
+        'sequence': 59,
+        'accession': 60,
+        'modification_type': 61,
+        'site_function': 62,
+        'function_evidence': 63,
+        'predicted_kinase': 64, 
+        'probability_loss': 65, 
+        'knockout_pvalue': 66, 
+        'tf': 67,
+        'Category of Mutation': 68,
+        'Interactions/Score': 69,
+        'Total Interaction Score': 70, 
+        'Cello2go probabilities': 71, 
+        'Location': 72
+
+    }
+
+    # Parse df to make dicts within dicts within a list
+    valid_df = mut_df[field_mapper.keys()]
+
+    mut_list = []
+    mut_list.append(fielddict)
+    new_counter = _counter+1
+    new_start_id = _start_id+1
+    for index, values in valid_df.iterrows():
+        row_dict = {}
+        for i in range(0,len(values)):
+            counter_dict = {}
+            counter_dict['new_'+str(new_counter)] = values[i]
+            row_dict[str(new_start_id)] = counter_dict
+
+            new_counter += 1
+            new_start_id += 1
+
+        mut_list.append(row_dict)
+        new_counter = _counter+1
+        new_start_id = _start_id+1
+
+    # mut_json = str(mut_list)
+    # mut_json = "{"+mut_json[1:-1]+"}"
+
+    return mut_list
+
 
 def _val_serializable(val):
     # Convert data to proper type for updating to database (making everything JSON serializable)
@@ -67,6 +167,7 @@ def _val_serializable(val):
                 val[entry] = float(val[entry])
         entry += 1
     return val
+
 
 def get_data_and_add_experiment(file, mutfile =""):
 
@@ -148,11 +249,10 @@ def get_data_and_add_experiment(file, mutfile =""):
     # Send the new experiment data
     # It will be added to the database
     # The JSON answer will be the same experiment, but with an assigned ID
-    # import pdb; pdb.set_trace()
-    import pdb; pdb.set_trace()
-    answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
-    exp_id = answer['id']
-    added_exp_url = exp_url + "/" + str(exp_id)
+    #TODO moved this down
+    # answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
+    # exp_id = answer['id']
+    # added_exp_url = exp_url + "/" + str(exp_id)
 
     # we check to see if there is a mutation file attached so we can upload it after the experiment is added, file needs
     # to be .xlsx
@@ -185,39 +285,57 @@ def get_data_and_add_experiment(file, mutfile =""):
     # the standard most popular strain for both
     # First we have to check the species(starting with just E. Coli)
     if val[1] == "Escherichia coli" and mutfile != "":
-        mut_df = pd.read_excel(mutfile, sheet_name='Data', header=4, keep_default_na=False)
-        mut_func_file = runmutfunc(mutfile)
-        # Update our mutation excel file with the Mutfunc results and return it as a new file with appropriately
-        # detailed headers
-        updated_mutation_dataframe = extract_files(mut_func_file, mut_df)
-        mechismo_results = run_mechismo(mutfile)
-        # Add mechismo results to complete mutation dataframe
-        df = pd.merge(updated_mutation_dataframe, mechismo_results, left_on="Start POS", right_on="Start POS",
-                          how='left')
-        df = df.fillna('')
-        list_of_genes = locations(mutfile)
-        # check to see if we can run cell2go with this mutation file, if not we end here
-        if list_of_genes == "False":
-            return
-        # cell2go_results = cello2go(list_of_genes)
-        #TODO remove this later - test purposes only
-        cell2go_results = pd.read_csv('test/cello_output_raw.csv')
-        df = pd.merge(df, cell2go_results, left_on="Start POS", right_on="Start POS", how='left')
-        df = df.fillna('')
-        # Need to drop duplicates here
-        df = df.drop_duplicates()
-        df.to_excel("Mutation_results.xlsx", index=False)
-        add_column_description()
+        mut_df = _get_all_mutation_data(mutfile)
+        mut_df.to_excel("Mutation_results.xlsx", index=False)
+        # add_column_description()
         # add this file to the zip file of mutation results
-        zip_open = zipfile.ZipFile(mut_func_file, 'a')
-        zip_open.write("Mutation_results_complete.xlsx")
+        zip_open = zipfile.ZipFile("Mutation_results_complete.xlsx", 'a')
+        zip_open.write("Mutation_results.xlsx")
         zip_open.close()
-        # We upload the file to a temporary location on the server
-        attachment = {'file': open(mut_func_file, 'rb')}
-        resp = req.post(attach_url, files=attachment, headers=auth_header)
 
+        # We upload the file to a temporary location on the server
+        attachment = {'file': open("Mutation_results_complete.xlsx", 'rb')}
+        #TODO Fix gateway issue for attachments
+        # resp = req.post(attach_url, files=attachment, headers=auth_header)
+
+        # Add mutation data to experiment post request
+        fielddict_mut = _add_mutations_to_fielddict(fielddict, mut_df)
+
+        new_experiment = {
+            'name': df["NAME"][0],  # the only required attribute
+            # key value pairs with field id as key
+            'fields': fielddict_mut,
+            'references': [
+                # {
+                #     # By default, references need a reference ID and the complete reference data
+                #     # with __all reference fields__ (see get results) to do an UPDATE
+                #     # This behavior can be changed by the 'action' attribute: 'new' (post, without ref id)
+                #     # or 'link' or 'delete' (with existing ref id)
+                #     'id': '11954',
+                #     'action': 'link'  # link existing paper to this experiment
+                # },
+                {
+                    'action': 'new',  # a completely new paper
+                    'authors': "a list of authors goes here",
+                    'title': 'this is the title of the new paper',
+                    'journal': 'Journal Abbr.',
+                    'year': '2019',
+                    'pages': '',
+                    'pubmed_id': pubmed_id,
+                    'url': pubmed_url
+                }
+            ]
+        }
+
+        # import pdb; pdb.set_trace()
+
+        answer = req.post(exp_url, headers=auth_header, data=new_experiment).json()
+        exp_id = answer['id']
+        added_exp_url = exp_url + "/" + str(exp_id)
         # Get the temporary id of the upload
-        tmp_uuid = resp.json()['uuid']
+        #TODO change this back
+        # tmp_uuid = resp.json()['uuid']
+        tmp_uuid = exp_id
 
         # Set the attachment field to the tmp id and name the file
         # The file will be moved to the correct location
@@ -233,15 +351,16 @@ def get_data_and_add_experiment(file, mutfile =""):
             }
         resp = req.put(added_exp_url, headers=auth_header, json=attach_exp)
 
-        # Add mutation data to experiment post request
-        # fielddict = _get_fielddict(val)
-
+        
         # After we run our script we remove the local version of the files
         # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results.xlsx")
         # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results_complete.xlsx")
     else:
         # Field value id's will not be assigned yet, until we request the complete object again
         answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
+        exp_id = answer['id']
+        added_exp_url = exp_url + "/" + str(exp_id)
+        # answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
         added_experiment = req.get(added_exp_url).json()
 
 
