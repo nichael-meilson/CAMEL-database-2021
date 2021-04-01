@@ -9,3 +9,5 @@ camel_venv/*
 lib/*
 pyvenv.cfg
 .idea/*
+test/*
+reference_genomes/*
