@@ -250,7 +250,8 @@ def get_data_and_add_experiment(file, mutfile =""):
     # It will be added to the database
     # The JSON answer will be the same experiment, but with an assigned ID
     #TODO moved this down
-    # answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
+    answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
+    return answer
     # exp_id = answer['id']
     # added_exp_url = exp_url + "/" + str(exp_id)
 
@@ -283,85 +284,88 @@ def get_data_and_add_experiment(file, mutfile =""):
     # Last we check to see if a mutation file was attached and then if it qualifies, we have to check the Species
     # to see if it is E. Coli or Yeast(eventually) and then also check to see what the strain is since we only work on
     # the standard most popular strain for both
+    
     # First we have to check the species(starting with just E. Coli)
-    if val[1] == "Escherichia coli" and mutfile != "":
-        mut_df = _get_all_mutation_data(mutfile)
-        mut_df.to_excel("Mutation_results.xlsx", index=False)
-        # add_column_description()
-        # add this file to the zip file of mutation results
-        zip_open = zipfile.ZipFile("Mutation_results_complete.xlsx", 'a')
-        zip_open.write("Mutation_results.xlsx")
-        zip_open.close()
+    # if val[1] == "Escherichia coli" and mutfile != "":
+    #     mut_df = _get_all_mutation_data(mutfile)
+    #     mut_df.to_excel("Mutation_results.xlsx", index=False)
+    #     # add_column_description()
+    #     # add this file to the zip file of mutation results
+    #     zip_open = zipfile.ZipFile("Mutation_results_complete.xlsx", 'a')
+    #     zip_open.write("Mutation_results.xlsx")
+    #     zip_open.close()
 
-        # We upload the file to a temporary location on the server
-        attachment = {'file': open("Mutation_results_complete.xlsx", 'rb')}
-        #TODO Fix gateway issue for attachments
-        # resp = req.post(attach_url, files=attachment, headers=auth_header)
+    #     # We upload the file to a temporary location on the server
+    #     attachment = {'file': open("Mutation_results_complete.xlsx", 'rb')}
+    #     #TODO Fix gateway issue for attachments
+    #     # resp = req.post(attach_url, files=attachment, headers=auth_header)
 
-        # Add mutation data to experiment post request
-        fielddict_mut = _add_mutations_to_fielddict(fielddict, mut_df)
+    #     # Add mutation data to experiment post request
+    #     fielddict_mut = _add_mutations_to_fielddict(fielddict, mut_df)
+    #     print(type(fielddict_mut))
 
-        new_experiment = {
-            'name': df["NAME"][0],  # the only required attribute
-            # key value pairs with field id as key
-            'fields': fielddict_mut,
-            'references': [
-                # {
-                #     # By default, references need a reference ID and the complete reference data
-                #     # with __all reference fields__ (see get results) to do an UPDATE
-                #     # This behavior can be changed by the 'action' attribute: 'new' (post, without ref id)
-                #     # or 'link' or 'delete' (with existing ref id)
-                #     'id': '11954',
-                #     'action': 'link'  # link existing paper to this experiment
-                # },
-                {
-                    'action': 'new',  # a completely new paper
-                    'authors': "a list of authors goes here",
-                    'title': 'this is the title of the new paper',
-                    'journal': 'Journal Abbr.',
-                    'year': '2019',
-                    'pages': '',
-                    'pubmed_id': pubmed_id,
-                    'url': pubmed_url
-                }
-            ]
-        }
+    #     new_experiment = {
+    #         'name': df["NAME"][0],  # the only required attribute
+    #         # key value pairs with field id as key
+    #         'fields': fielddict_mut,
+    #         'references': [
+    #             # {
+    #             #     # By default, references need a reference ID and the complete reference data
+    #             #     # with __all reference fields__ (see get results) to do an UPDATE
+    #             #     # This behavior can be changed by the 'action' attribute: 'new' (post, without ref id)
+    #             #     # or 'link' or 'delete' (with existing ref id)
+    #             #     'id': '11954',
+    #             #     'action': 'link'  # link existing paper to this experiment
+    #             # },
+    #             {
+    #                 'action': 'new',  # a completely new paper
+    #                 'authors': "a list of authors goes here",
+    #                 'title': 'this is the title of the new paper',
+    #                 'journal': 'Journal Abbr.',
+    #                 'year': '2019',
+    #                 'pages': '',
+    #                 'pubmed_id': pubmed_id,
+    #                 'url': pubmed_url
+    #             }
+    #         ]
+    #     }
 
-        # import pdb; pdb.set_trace()
+    #     # import pdb; pdb.set_trace()
+    #     # x = req.post(exp_url, headers=auth_header, data=new_experiment)
 
-        answer = req.post(exp_url, headers=auth_header, data=new_experiment).json()
-        exp_id = answer['id']
-        added_exp_url = exp_url + "/" + str(exp_id)
-        # Get the temporary id of the upload
-        #TODO change this back
-        # tmp_uuid = resp.json()['uuid']
-        tmp_uuid = exp_id
+    #     answer = req.post(exp_url, headers=auth_header, data=new_experiment).json()
+    #     exp_id = answer['id']
+    #     added_exp_url = exp_url + "/" + str(exp_id)
+    #     # Get the temporary id of the upload
+    #     #TODO change this back
+    #     # tmp_uuid = resp.json()['uuid']
+    #     tmp_uuid = exp_id
 
-        # Set the attachment field to the tmp id and name the file
-        # The file will be moved to the correct location
-        dest_file_name = "Complete_Mutation_Results.gz"
-        attach_exp = {
-                'fields': {
-                    '44': {
-                        'new_1': {
-                            'uuid': tmp_uuid,
-                            'filename': dest_file_name}
-                    }
-                }
-            }
-        resp = req.put(added_exp_url, headers=auth_header, json=attach_exp)
+    #     # Set the attachment field to the tmp id and name the file
+    #     # The file will be moved to the correct location
+    #     dest_file_name = "Complete_Mutation_Results.gz"
+    #     attach_exp = {
+    #             'fields': {
+    #                 '44': {
+    #                     'new_1': {
+    #                         'uuid': tmp_uuid,
+    #                         'filename': dest_file_name}
+    #                 }
+    #             }
+    #         }
+    #     resp = req.put(added_exp_url, headers=auth_header, json=attach_exp)
 
         
-        # After we run our script we remove the local version of the files
-        # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results.xlsx")
-        # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results_complete.xlsx")
-    else:
-        # Field value id's will not be assigned yet, until we request the complete object again
-        answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
-        exp_id = answer['id']
-        added_exp_url = exp_url + "/" + str(exp_id)
-        # answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
-        added_experiment = req.get(added_exp_url).json()
+    #     # After we run our script we remove the local version of the files
+    #     # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results.xlsx")
+    #     # os.remove("C:\\Users\\samue\\PycharmProjects\\Thesis\\Mutation_results_complete.xlsx")
+    # else:
+    #     # Field value id's will not be assigned yet, until we request the complete object again
+    #     answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
+    #     exp_id = answer['id']
+    #     added_exp_url = exp_url + "/" + str(exp_id)
+    #     # answer = req.post(exp_url, headers=auth_header, json=new_experiment).json()
+    #     added_experiment = req.get(added_exp_url).json()
 
 
 # Function to add mutation data to experiments, needs to be .xlsx
